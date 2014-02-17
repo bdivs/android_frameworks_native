@@ -3288,8 +3288,6 @@ void SurfaceFlinger::checkScreenshot(size_t w, size_t s, size_t h, void const* v
     }
 }
 
-<<<<<<< HEAD
-=======
 #ifdef USE_MHEAP_SCREENSHOT
 status_t SurfaceFlinger::captureScreenImplCpuConsumerLocked(
         const sp<const DisplayDevice>& hw,
@@ -3444,7 +3442,6 @@ void SurfaceFlinger::setupSwapRect()
    }
 }
 
->>>>>>> 9b5ef37... Display: Add swaprect feature for MDP composition.
 // ---------------------------------------------------------------------------
 
 SurfaceFlinger::LayerVector::LayerVector() {
