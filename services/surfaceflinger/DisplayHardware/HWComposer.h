@@ -124,9 +124,6 @@ public:
     // the release fence is only valid after commit()
     sp<Fence> getAndResetReleaseFence(int32_t id);
 
-    // is VDS solution enabled
-    inline bool isVDSEnabled() const { return mVDSEnabled; };
-
     // needed forward declarations
     class LayerListIterator;
 
@@ -356,7 +353,6 @@ private:
     bool                            mDebugForceFakeVSync;
     BitSet32                        mAllocatedDisplayIDs;
     bool                            mSwapRectOn;
-    bool                            mVDSEnabled;
 
     // protected by mLock
     mutable Mutex mLock;
