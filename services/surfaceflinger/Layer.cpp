@@ -268,9 +268,7 @@ static Rect reduce(const Rect& win, const Region& exclude) {
     if (CC_LIKELY(exclude.isEmpty())) {
         return win;
     }
-    Rect tmp;
-    win.intersect(exclude.getBounds(), &tmp);
-    if (exclude.isRect() && !tmp.isEmpty()) {
+    if (exclude.isRect()) {
         return win.reduce(exclude.getBounds());
     }
     return Region(win).subtract(exclude).getBounds();
