@@ -74,18 +74,9 @@
 
 #include "RenderEngine/RenderEngine.h"
 #include <cutils/compiler.h>
-#if defined(ENABLE_SWAPRECT) && defined(QCOM_BSP)
-#include "cb_swap_rect.h"
-#endif
 
 #ifdef SAMSUNG_HDMI_SUPPORT
 #include "SecTVOutService.h"
-#endif
-
-#ifdef ENABLE_SWAPRECT
-#define SWAPRECT_DEFAULT "1"
-#else
-#define SWAPRECT_DEFAULT "0"
 #endif
 
 #define DISPLAY_COUNT       1
@@ -199,8 +190,6 @@ SurfaceFlinger::SurfaceFlinger()
 #endif
 #endif
 
-    property_get("debug.sf.swaprect", value, SWAPRECT_DEFAULT);
-    mSwapRectEnable = atoi(value) ? true:false ;
 }
 
 void SurfaceFlinger::onFirstRef()
@@ -1179,8 +1168,6 @@ void SurfaceFlinger::setUpHWComposer() {
             sp<const DisplayDevice> hw(mDisplays[dpy]);
             hw->prepareFrame(hwc);
         }
-        // set up for swaprect
-        setupSwapRect();
     }
 }
 
@@ -2775,12 +2762,6 @@ void SurfaceFlinger::dumpAllLocked(const Vector<String16>& args, size_t& index,
             inTransactionDuration/1000.0);
 
     /*
-     * SWAPRECT state
-     */
-    result.appendFormat( "SWAPRECT state: %s\n",
-            mSwapRectEnable? "enabled":"disabled");
-
-    /*
      * VSYNC state
      */
     mEventThread->dump(result);
@@ -3341,6 +3322,7 @@ void SurfaceFlinger::checkScreenshot(size_t w, size_t s, size_t h, void const* v
     }
 }
 
+<<<<<<< HEAD
 void SurfaceFlinger::setupSwapRect()
 {
     /*
@@ -3403,6 +3385,109 @@ void SurfaceFlinger::setupSwapRect()
         }
    }
 }
+=======
+#ifdef USE_MHEAP_SCREENSHOT
+status_t SurfaceFlinger::captureScreenImplCpuConsumerLocked(
+        const sp<const DisplayDevice>& hw,
+        sp<IMemoryHeap>* heap, uint32_t* w, uint32_t* h,
+        uint32_t reqWidth, uint32_t reqHeight,
+        uint32_t minLayerZ, uint32_t maxLayerZ)
+{
+    ATRACE_CALL();
+
+    // get screen geometry
+    const uint32_t hw_w = hw->getWidth();
+    const uint32_t hw_h = hw->getHeight();
+
+    if ((reqWidth > hw_w) || (reqHeight > hw_h)) {
+        ALOGE("size mismatch (%d, %d) > (%d, %d)",
+                reqWidth, reqHeight, hw_w, hw_h);
+        return BAD_VALUE;
+    }
+
+    reqWidth  = (!reqWidth)  ? hw_w : reqWidth;
+    reqHeight = (!reqHeight) ? hw_h : reqHeight;
+
+    status_t result = NO_ERROR;
+
+    renderScreenImplLocked(hw, reqWidth, reqHeight, minLayerZ, maxLayerZ, true);
+
+    size_t size = reqWidth * reqHeight * 4;
+    // allocate shared memory large enough to hold the
+    // screen capture
+    sp<MemoryHeapBase> base(
+            new MemoryHeapBase(size, 0, "screen-capture") );
+    void *vaddr = base->getBase();
+    glReadPixels(0, 0, reqWidth, reqHeight,
+            GL_RGBA, GL_UNSIGNED_BYTE, vaddr);
+    if (glGetError() == GL_NO_ERROR) {
+        *heap = base;
+        *w = reqWidth;
+        *h = reqHeight;
+        result = NO_ERROR;
+    } else {
+        result = INVALID_OPERATION;
+    }
+
+    return result;
+}
+
+status_t SurfaceFlinger::captureScreen(const sp<IBinder>& display,
+        sp<IMemoryHeap>* heap,
+        uint32_t* outWidth, uint32_t* outHeight,
+        uint32_t reqWidth, uint32_t reqHeight,
+        uint32_t minLayerZ, uint32_t maxLayerZ)
+{
+    if (CC_UNLIKELY(display == 0))
+        return BAD_VALUE;
+
+    class MessageCaptureScreen : public MessageBase {
+        SurfaceFlinger* flinger;
+        sp<IBinder> display;
+        sp<IMemoryHeap>* heap;
+        uint32_t* outWidth;
+        uint32_t* outHeight;
+        uint32_t reqWidth;
+        uint32_t reqHeight;
+        uint32_t minLayerZ;
+        uint32_t maxLayerZ;
+        status_t result;
+    public:
+        MessageCaptureScreen(SurfaceFlinger* flinger,
+                const sp<IBinder>& display, sp<IMemoryHeap>* heap,
+                uint32_t* outWidth, uint32_t* outHeight,
+                uint32_t reqWidth, uint32_t reqHeight,
+                uint32_t minLayerZ, uint32_t maxLayerZ)
+            : flinger(flinger), display(display), heap(heap),
+              outWidth(outWidth), outHeight(outHeight),
+              reqWidth(reqWidth), reqHeight(reqHeight),
+              minLayerZ(minLayerZ), maxLayerZ(maxLayerZ),
+              result(PERMISSION_DENIED)
+        {
+        }
+        status_t getResult() const {
+            return result;
+        }
+        virtual bool handler() {
+            Mutex::Autolock _l(flinger->mStateLock);
+            sp<const DisplayDevice> hw(flinger->getDisplayDevice(display));
+            result = flinger->captureScreenImplCpuConsumerLocked(hw, heap,
+                    outWidth, outHeight,
+                    reqWidth, reqHeight, minLayerZ, maxLayerZ);
+            return true;
+        }
+    };
+
+    sp<MessageBase> msg = new MessageCaptureScreen(this, display, heap,
+            outWidth, outHeight, reqWidth, reqHeight, minLayerZ, maxLayerZ);
+    status_t res = postMessageSync(msg);
+    if (res == NO_ERROR) {
+        res = static_cast<MessageCaptureScreen*>( msg.get() )->getResult();
+    }
+    return res;
+}
+#endif
+>>>>>>> 2aa1da5... Revert swaprect feature for new upstream implementation.
 
 // ---------------------------------------------------------------------------
 
